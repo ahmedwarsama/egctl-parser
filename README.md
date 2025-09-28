@@ -15,3 +15,7 @@ When running this script you would need to pipe the output of egctl to the egctl
 ```
 egctl config envoy-proxy endpoint | egctl-parser
 ```
+
+# TODO
+- Add support to choose what httproute to print.
+- Fix a better looking output.
