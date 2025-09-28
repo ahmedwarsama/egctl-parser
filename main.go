@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
@@ -52,17 +53,30 @@ type EndpointInfo struct {
 	Address       string
 }
 
-var endpointSlice []map[string]EndpointInfo
-
-func main() {
+func fileToString() string {
 	filename := os.Args[1]
 	rawData, err := os.ReadFile(filename)
-	rawJson := string(rawData)
 	if err != nil {
 		log.Fatal(err)
 	}
+	jsonString := string(rawData)
+	return jsonString
+}
+
+func stdinToString() string {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
+	stringData := string(data)
+	return stringData
+}
+
+func endpointData(s string) []map[string]EndpointInfo {
+	var endpointSlice []map[string]EndpointInfo
 	var envoyOutput EnvoyOutput
-	if err := json.Unmarshal([]byte(rawJson), &envoyOutput); err != nil {
+
+	if err := json.Unmarshal([]byte(s), &envoyOutput); err != nil {
 		panic(err)
 	}
 
@@ -82,7 +96,26 @@ func main() {
 			}
 		}
 	}
-	for _, endpointMap := range endpointSlice {
+	return endpointSlice
+}
+
+func main() {
+	stat, _ := os.Stdin.Stat()
+	var rawJson string
+
+	// Check if filename has been added as an argument or input comes from stdin (piped)
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		rawJson = stdinToString()
+	} else if len(os.Args) == 2 {
+		rawJson = fileToString()
+	} else if len(os.Args) > 2 {
+		log.Fatal("Too many arguments, only 1 supported.")
+	} else {
+		log.Fatal("No stdin or arguments provided.")
+	}
+
+	endpointDataSlice := endpointData(rawJson)
+	for _, endpointMap := range endpointDataSlice {
 		for envoyPod, endpointInfo := range endpointMap {
 			fmt.Println("Envoy-Pod: ", envoyPod)
 			fmt.Println("  Httproute-Name: ", endpointInfo.HttpRouteName)
